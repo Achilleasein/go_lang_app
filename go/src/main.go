@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	_ "pkg/mod/github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 	// "gorm.io/gorm"
 	// "gorm.io/driver/sqlite"
 	// "github.com/gin-gonic/gin"
