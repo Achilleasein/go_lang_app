@@ -16,6 +16,7 @@ import (
 	// "net/http"
 )
 
+// initialize logs
 var (
 	WarningLogger *log.Logger
 	InfoLogger    *log.Logger
@@ -33,6 +34,16 @@ func init() {
 	ErrorLogger = log.New(file, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
+// get users IP
+func GetIP(r *http.Request) string {
+	forwarded := r.Header.Get("X-FORWARDED-FOR")
+	if forwarded != "" {
+		return forwarded
+	}
+	InfoLogger.Println("Requesters ip:", r.RemoteAddr)
+	return r.RemoteAddr
+}
+
 func handleRequests() {
 	http.HandleFunc("/", homePage)
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -42,22 +53,24 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to the HomePage!")
 	fmt.Println("Endpoint Hit: homePage")
 	InfoLogger.Println("Homepage requested")
+	GetIP(r)
 }
 
 func main() {
 	InfoLogger.Println("Starting the application...")
+
+	// Enstablishing query connection
 	cnn, err := sql.Open("mysql", "docker:docker@tcp(db:3306)/wallet_db")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	id := 1
 	var wallet string
 
+	// Simple query to check the connection
 	if err := cnn.QueryRow("SELECT wallet FROM wallets WHERE id = ? LIMIT 1", id).Scan(&wallet); err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Println(id, wallet)
 
 	handleRequests()
