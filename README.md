@@ -1,5 +1,8 @@
 # go_lang_learning
 
+To start use docker-compose up --build, keep in mind that it might take 2 tries for the golang_app container to properly wind up.(Needs debugging)
+
+
 ## Possible improvements
 1. Use routes(with the library gin-gonic) to divide the functionality.
 2. Use different ports for different get-post to easier monitor.
@@ -9,6 +12,8 @@
 6. Divide main entry function from the rest
 7. divide mysql functions from the rest
 8. make sql connections persistent
+9. properly implement context to then create cookies
+10. Reduce size of tests, too big
 
 ## General Notes
 1. Didn't use gorm, they generaly make the sql requests slower and the the requests we used were easy enough to manage.

@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/redis/v8"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -46,6 +48,12 @@ var (
 	db  *sql.DB
 )
 
+// // Redis var
+var (
+	ctx_redis context.Context
+	// redisclient *re
+)
+
 ///// Global variables /////
 
 ///// Functions area begins /////
@@ -58,6 +66,36 @@ func FromJSON(data []byte) UserCredentials {
 	}
 	return user_cred
 }
+
+//
+func ConnectRedis() {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+	log.Println(rdb)
+	// err := rdb.Set("key", "value", 0).Err()
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+}
+
+// func ReadRedis(rh *rejson.Handler, redis *Redis) {
+// 	credsJSON, err := redis.Bytes(rh.JSONGet("wallet", "."))
+// 	if err != nil {
+// 		log.Fatalf("Failed to JSONGet")
+// 		return
+// 	}
+// }
+// func WriteRedis(rh *rejson.Handler, redis *Redis) {
+// 	res, err := rh.JSONSet("wallet", ".", wallet)
+// 	if err != nil {
+// 		log.Fatalf("Failed to JSONSet")
+// 		return
+// 	}
+// }
 
 // Currently not used
 func ExampleDB_PingContext() {
@@ -120,7 +158,7 @@ func (d *DBConnection) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err = d.db_conn.Query("insert into users values ($1, $2)", creds.Username, creds.Password); err != nil {
+	if _, err = d.db_conn.Query("insert into wallets values ($1, $2)", creds.Username, creds.Password); err != nil {
 		InfoLogger.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -139,15 +177,13 @@ func RetrieveWallet(creds UserCredentials) int {
 }
 
 // Update
-func UpdateWallet(creds UserCredentials) int {
-	var money int
-	err := creds.DB_conn.QueryRow("UPDATE wallets SET money=? WHERE wallet=?", creds.Transaction, creds.Wallet).Scan(&money)
+func UpdateWallet(creds UserCredentials) {
+	result, err := creds.DB_conn.Exec("UPDATE wallets SET money=? WHERE wallet=?", creds.Transaction, creds.Wallet)
 	if err != nil {
 		InfoLogger.Fatal(err)
+	} else {
+		InfoLogger.Println(result)
 	}
-	InfoLogger.Println("Wallet credits:", money)
-	InfoLogger.Println(money)
-	return money
 }
 
 // Handle wallet balance
@@ -175,13 +211,12 @@ func (b *UserCredentials) BalanceManage(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusCreated)
 		current_balance := RetrieveWallet(*b)
 		fmt.Println(current_balance - b.Transaction)
-		// if current_balance-b.Transaction < 0 {
-		// 	fmt.Println("Impossible transaction.")
-		// } else {
-		// 	b.Transaction = current_balance - b.Transaction
-		// 	final_balance = UpdateWallet(*b) //has to return an int
-		// 	fmt.Println(final_balance)
-		// }
+		if current_balance-b.Transaction < 0 {
+			fmt.Println("Impossible transaction.")
+		} else {
+			b.Transaction = current_balance - b.Transaction
+			UpdateWallet(*b)
+		}
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Unsupported request method."))
@@ -222,6 +257,8 @@ func main() {
 
 	b := &UserCredentials{}
 	b.DB_conn = d.db_conn
+
+	ConnectRedis()
 
 	http.HandleFunc("/signup", d.Signup)
 	http.HandleFunc("/manage-balance/input", b.BalanceManage)
