@@ -75,27 +75,7 @@ func ConnectRedis() {
 		DB:       0,  // use default DB
 	})
 	log.Println(rdb)
-	// err := rdb.Set("key", "value", 0).Err()
-	// if err != nil {
-	// 	panic(err)
-	// }
-
 }
-
-// func ReadRedis(rh *rejson.Handler, redis *Redis) {
-// 	credsJSON, err := redis.Bytes(rh.JSONGet("wallet", "."))
-// 	if err != nil {
-// 		log.Fatalf("Failed to JSONGet")
-// 		return
-// 	}
-// }
-// func WriteRedis(rh *rejson.Handler, redis *Redis) {
-// 	res, err := rh.JSONSet("wallet", ".", wallet)
-// 	if err != nil {
-// 		log.Fatalf("Failed to JSONSet")
-// 		return
-// 	}
-// }
 
 // Currently not used
 func ExampleDB_PingContext() {
@@ -200,14 +180,6 @@ func (b *UserCredentials) BalanceManage(w http.ResponseWriter, r *http.Request) 
 	}
 	switch method := r.Method; method {
 	case http.MethodPost:
-		// b.Username = user_cred.Username
-		// b.Password = user_cred.Password
-		// b.Wallet = user_cred.Wallet
-		// fmt.Fprint(w, b.Password)
-		// fmt.Fprint(w, b.Username)
-		// fmt.Printf(b.Wallet)
-		// InfoLogger.Println("Requested wallet:", b.Wallet)
-		// w.Header().Add("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusCreated)
 		current_balance := RetrieveWallet(*b)
 		fmt.Println(current_balance - b.Transaction)
@@ -220,6 +192,71 @@ func (b *UserCredentials) BalanceManage(w http.ResponseWriter, r *http.Request) 
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Unsupported request method."))
+	}
+}
+
+// Return balance
+func (b *UserCredentials) ReturnBalance(w http.ResponseWriter, r *http.Request) {
+	GetIP(r)
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	err := json.NewDecoder(r.Body).Decode(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if b.Transaction <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Unsupported request method."))
+	} else {
+		w.WriteHeader(http.StatusCreated)
+		current_balance := RetrieveWallet(*b)
+		fmt.Println(current_balance)
+	}
+}
+
+// Add credit to account
+func (b *UserCredentials) AddCredit(w http.ResponseWriter, r *http.Request) {
+	GetIP(r)
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	err := json.NewDecoder(r.Body).Decode(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if b.Transaction <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Unsupported request method."))
+	} else {
+		UpdateWallet(*b)
+	}
+}
+
+// Add debit to account
+func (b *UserCredentials) AddDebit(w http.ResponseWriter, r *http.Request) {
+	GetIP(r)
+	if err := r.ParseForm(); err != nil {
+		fmt.Fprintf(w, "ParseForm() err: %v", err)
+		return
+	}
+	err := json.NewDecoder(r.Body).Decode(b)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if b.Transaction <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Unsupported request method."))
+	} else {
+		current_balance := RetrieveWallet(*b)
+		if current_balance-b.Transaction < 0 {
+			fmt.Println("Impossible transaction.")
+		} else {
+			b.Transaction = current_balance - b.Transaction
+			UpdateWallet(*b)
+		}
 	}
 }
 
@@ -262,7 +299,9 @@ func main() {
 
 	http.HandleFunc("/signup", d.Signup)
 	http.HandleFunc("/manage-balance/input", b.BalanceManage)
+	http.HandleFunc("/balance/input", b.ReturnBalance)
+	http.HandleFunc("/credit/input", b.AddCredit)
+	http.HandleFunc("/debit/input", b.AddDebit)
 	http.HandleFunc("/", homePage)
 	log.Fatal(http.ListenAndServe(":8080", nil))
-	// handleRequests()
 }
